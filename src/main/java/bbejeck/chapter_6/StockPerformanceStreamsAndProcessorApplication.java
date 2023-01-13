@@ -27,28 +27,24 @@ public class StockPerformanceStreamsAndProcessorApplication {
 
     public static void main(String[] args) throws Exception {
 
-
         StreamsConfig streamsConfig = new StreamsConfig(getProperties());
         Serde<String> stringSerde = Serdes.String();
         Serde<StockPerformance> stockPerformanceSerde = StreamsSerdes.StockPerformanceSerde();
         Serde<StockTransaction> stockTransactionSerde = StreamsSerdes.StockTransactionSerde();
 
+        String stocksStateStoreName = "stock-performance-store";
+        double differentialThreshold = 0.02;
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        String stocksStateStore = "stock-performance-store";
-        double differentialThreshold = 0.02;
-
-        KeyValueBytesStoreSupplier storeSupplier = Stores.lruMap(stocksStateStore, 100);
-        StoreBuilder<KeyValueStore<String, StockPerformance>> storeBuilder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), stockPerformanceSerde);
-
-        builder.addStateStore(storeBuilder);
+        // 스테이트 스토어 추가
+        builder.addStateStore(makeLruStoreBuilder(stocksStateStoreName, stockPerformanceSerde));
 
         builder.stream("stock-transactions", Consumed.with(stringSerde, stockTransactionSerde))
-                .transform(() -> new StockPerformanceTransformer(stocksStateStore, differentialThreshold), stocksStateStore)
+                .transform(() -> new StockPerformanceTransformer(stocksStateStoreName, differentialThreshold), stocksStateStoreName)
                 .print(Printed.<String, StockPerformance>toSysOut().withLabel("StockPerformance"));
 
-        //Uncomment this line and comment out the line above for writing to a topic
+        // Uncomment this line and comment out the line above for writing to a topic
         //.to(stringSerde, stockPerformanceSerde, "stock-performance");
 
 
@@ -61,6 +57,11 @@ public class StockPerformanceStreamsAndProcessorApplication {
         System.out.println("Shutting down the Stock KStream/Process API Analysis App now");
         kafkaStreams.close();
         MockDataProducer.shutdown();
+    }
+
+    public static StoreBuilder<KeyValueStore<String, StockPerformance>> makeLruStoreBuilder(String stocksStateStoreName, Serde<StockPerformance> stockPerformanceSerde) {
+        KeyValueBytesStoreSupplier storeSupplier = Stores.lruMap(stocksStateStoreName, 100);
+        return Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), stockPerformanceSerde);
     }
 
     private static Properties getProperties() {

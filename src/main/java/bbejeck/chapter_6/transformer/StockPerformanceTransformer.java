@@ -28,6 +28,7 @@ public class StockPerformanceTransformer implements Transformer<String, StockTra
     @Override
     public void init(ProcessorContext processorContext) {
         keyValueStore = (KeyValueStore) processorContext.getStateStore(stateStoreName);
+
         StockPerformancePunctuator punctuator = new StockPerformancePunctuator(differentialThreshold, processorContext, keyValueStore);
         processorContext.schedule(15000, PunctuationType.STREAM_TIME, punctuator);
     }

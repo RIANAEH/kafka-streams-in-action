@@ -51,7 +51,9 @@ public class StockPerformanceStreamsAndProcessorMultipleValuesApplication {
         builder.addStateStore(storeBuilder);
 
         builder.stream("stock-transactions", Consumed.with(stringSerde, stockTransactionSerde))
-                .transform(transformerSupplier, stocksStateStore).flatMap((dummyKey,valueList) -> valueList)
+                .transform(transformerSupplier, stocksStateStore)
+                // 다중 값을 개별 레코드로 변환
+                .flatMap((dummyKey, valueList) -> valueList)
                 .print(Printed.<String, StockPerformance>toSysOut().withLabel("StockPerformance"));
                 //.to(stringSerde, stockPerformanceSerde, "stock-performance");
 
