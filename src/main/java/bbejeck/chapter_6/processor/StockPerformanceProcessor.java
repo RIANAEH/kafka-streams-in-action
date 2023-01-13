@@ -22,16 +22,20 @@ public class StockPerformanceProcessor extends AbstractProcessor<String, StockTr
         this.differentialThreshold = differentialThreshold;
     }
 
+    /*
+        스테이트 스토어 또는 펑추에이터를 사용하는 경우 init() 메서드를 오버라이드 해야 한다.
+     */
     @SuppressWarnings("unchecked")
     @Override
     public void init(ProcessorContext processorContext) {
         super.init(processorContext);
+
+        // 스테이트 스토어 가져옴
         keyValueStore = (KeyValueStore) context().getStateStore(stateStoreName);
-        StockPerformancePunctuator punctuator = new StockPerformancePunctuator(differentialThreshold,
-                                                                               context(),
-                                                                               keyValueStore);
-        
-      context().schedule(10000, PunctuationType.WALL_CLOCK_TIME, punctuator);
+
+        // 펑추에이터 예약
+        StockPerformancePunctuator punctuator = new StockPerformancePunctuator(differentialThreshold, context(), keyValueStore);
+        context().schedule(10000, PunctuationType.WALL_CLOCK_TIME, punctuator);
     }
 
     @Override
@@ -47,6 +51,7 @@ public class StockPerformanceProcessor extends AbstractProcessor<String, StockTr
             stockPerformance.updateVolumeStats(transaction.getShares());
             stockPerformance.setLastUpdateSent(Instant.now());
 
+            // 계산 결과를 스테이트 스토어에 업데이트
             keyValueStore.put(symbol, stockPerformance);
         }
     }

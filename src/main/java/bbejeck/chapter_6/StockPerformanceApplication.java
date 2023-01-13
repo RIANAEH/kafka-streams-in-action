@@ -45,17 +45,26 @@ public class StockPerformanceApplication {
         KeyValueBytesStoreSupplier storeSupplier = Stores.inMemoryKeyValueStore(stocksStateStore);
         StoreBuilder<KeyValueStore<String, StockPerformance>> storeBuilder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), stockPerformanceSerde);
 
-
-        topology.addSource("stocks-source", stringDeserializer, stockTransactionDeserializer,"stock-transactions")
-                .addProcessor("stocks-processor", () -> new StockPerformanceProcessor(stocksStateStore, differentialThreshold), "stocks-source")
-                .addStateStore(storeBuilder,"stocks-processor")
-                .addSink("stocks-sink", "stock-performance", stringSerializer, stockPerformanceSerializer, "stocks-processor");
+        topology.addSource("stocks-source",
+                        stringDeserializer,
+                        stockTransactionDeserializer,
+                        "stock-transactions")
+                .addProcessor("stocks-processor",
+                        () -> new StockPerformanceProcessor(stocksStateStore, differentialThreshold),
+                        "stocks-source")
+                .addStateStore(storeBuilder,
+                        "stocks-processor")
+                .addSink("stocks-sink",
+                        "stock-performance",
+                        stringSerializer,
+                        stockPerformanceSerializer,
+                        "stocks-processor");
 
 
         topology.addProcessor("stocks-printer", new KStreamPrinter("StockPerformance"), "stocks-processor");
 
         KafkaStreams kafkaStreams = new KafkaStreams(topology, streamsConfig);
-        MockDataProducer.produceStockTransactionsWithKeyFunction(50,50, 25, StockTransaction::getSymbol);
+        MockDataProducer.produceStockTransactionsWithKeyFunction(50, 50, 25, StockTransaction::getSymbol);
         System.out.println("Stock Analysis App Started");
         kafkaStreams.cleanUp();
         kafkaStreams.start();

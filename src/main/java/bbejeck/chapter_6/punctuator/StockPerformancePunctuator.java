@@ -40,7 +40,7 @@ public class StockPerformancePunctuator implements Punctuator {
             if (stockPerformance != null) {
                 if (stockPerformance.priceDifferential() >= differentialThreshold ||
                         stockPerformance.volumeDifferential() >= differentialThreshold) {
-                    context.forward(key, stockPerformance);
+                    context.forward(key, stockPerformance); // 다운스트림으로 레코드 전달 (자식 노드의 이름을 지정하지 않으면 모든 자식 노드에 전달된다.)
                 }
             }
         }
