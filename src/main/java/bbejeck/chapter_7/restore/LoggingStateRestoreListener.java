@@ -22,6 +22,9 @@ public class LoggingStateRestoreListener implements StateRestoreListener {
     private final Map<TopicPartition, Long> restoredSoFar = new ConcurrentHashMap<>();
 
 
+    /*
+        복원 프로세스가 시작될 때 실행한다.
+     */
     @Override
     public void onRestoreStart(TopicPartition topicPartition, String store, long start, long end) {
         long toRestore = end - start;
@@ -30,18 +33,28 @@ public class LoggingStateRestoreListener implements StateRestoreListener {
 
     }
 
+    /*
+        복원 프로세스가 최근 배치를 상태 저장소에 로드한 후에 실행한다.
+     */
     @Override
     public void onBatchRestored(TopicPartition topicPartition, String store, long start, long batchCompleted) {
         NumberFormat formatter = new DecimalFormat("#.##");
 
+        // 복원된 전체 레코드 개수 계산
         long currentProgress = batchCompleted + restoredSoFar.getOrDefault(topicPartition, 0L);
+        // 완료된 복원의 백분율 계산
         double percentComplete =  (double) currentProgress / totalToRestore.get(topicPartition);
 
         LOG.info("Completed {} for {}% of total restoration for {} on {}",
                 batchCompleted, formatter.format(percentComplete * 100.00), store, topicPartition);
+
+        // 지금까지 복원된 레코드 개수 저장
         restoredSoFar.put(topicPartition, currentProgress);
     }
 
+    /*
+        복원 프로세스가 모두 완료되면 실행한다.
+     */
     @Override
     public void onRestoreEnd(TopicPartition topicPartition, String store, long totalRestored) {
         LOG.info("Restoration completed for {} on topic-partition {}", store, topicPartition);

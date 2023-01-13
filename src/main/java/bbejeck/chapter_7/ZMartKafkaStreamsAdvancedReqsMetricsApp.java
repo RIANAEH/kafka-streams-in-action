@@ -156,8 +156,10 @@ import java.util.concurrent.CountDownLatch;
         props.put(StreamsConfig.CLIENT_ID_CONFIG, "zmart-metrics-client-id");
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "zmart-metrics-group-id");
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "zmart-metrics-application-id");
+        // 매트릭 기록 레벨 설정
         props.put(StreamsConfig.METRICS_RECORDING_LEVEL_CONFIG, "DEBUG");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        // 프로듀서 인터셉터 설정
         props.put(StreamsConfig.producerPrefix(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG), Collections.singletonList(ZMartProducerInterceptor.class));
         return props;
     }

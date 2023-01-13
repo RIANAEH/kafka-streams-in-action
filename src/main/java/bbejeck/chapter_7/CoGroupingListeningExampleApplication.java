@@ -54,16 +54,15 @@ public class CoGroupingListeningExampleApplication {
 
         Topology topology = new Topology();
         Map<String, String> changeLogConfigs = new HashMap<>();
-        changeLogConfigs.put("retention.ms","120000" );
+        changeLogConfigs.put("retention.ms", "120000");
         changeLogConfigs.put("cleanup.policy", "compact,delete");
 
         KeyValueBytesStoreSupplier storeSupplier = Stores.persistentKeyValueStore(TUPLE_STORE_NAME);
         StoreBuilder<KeyValueStore<String, Tuple<List<ClickEvent>, List<StockTransaction>>>> builder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), eventPerformanceTuple);
 
 
-
         topology.addSource("Txn-Source", stringDeserializer, stockTransactionDeserializer, "stock-transactions")
-                .addSource( "Events-Source", stringDeserializer, clickEventDeserializer, "events")
+                .addSource("Events-Source", stringDeserializer, clickEventDeserializer, "events")
                 .addProcessor("Txn-Processor", StockTransactionProcessor::new, "Txn-Source")
                 .addProcessor("Events-Processor", ClickEventProcessor::new, "Events-Source")
                 .addProcessor("CoGrouping-Processor", CogroupingProcessor::new, "Txn-Processor", "Events-Processor")
@@ -76,17 +75,28 @@ public class CoGroupingListeningExampleApplication {
         MockDataProducer.produceStockTransactionsAndDayTradingClickEvents(50, 100, 100, StockTransaction::getSymbol);
 
         KafkaStreams kafkaStreams = new KafkaStreams(topology, streamsConfig);
+
+        // 글로벌 리스토어 리스너 설정
         kafkaStreams.setGlobalStateRestoreListener(new LoggingStateRestoreListener());
 
+        // 예상하지 못한 예외를 핸들링
         kafkaStreams.setUncaughtExceptionHandler((thread, exception) ->
-            LOG.error("Thread [{}] encountered [{}]", thread.getName(), exception.getMessage())
+                LOG.error("Thread [{}] encountered [{}]", thread.getName(), exception.getMessage())
         );
 
         kafkaStreams.setStateListener((newState, oldState) -> {
-           if (oldState == KafkaStreams.State.REBALANCING && newState== KafkaStreams.State.RUNNING) {
-               LOG.info("Topology Layout {}", topology.describe());
-               LOG.info("Thread metadata {}", kafkaStreams.localThreadsMetadata());
-           }
+            // 상태가 리벨런싱에서 러닝으로 변환된 경우
+            if (oldState == KafkaStreams.State.REBALANCING && newState == KafkaStreams.State.RUNNING) {
+                // 해당 토폴로지의 구조와 리파티셔닝을 지원하기 위해 생성된 내부 토픽 로깅
+                LOG.info("Topology Layout {}", topology.describe());
+                // 실행 시간 정보 로깅
+                LOG.info("Thread metadata {}", kafkaStreams.localThreadsMetadata());
+            }
+
+            // 상태가 리밸런싱 단계에 진입
+            if (newState == KafkaStreams.State.REBALANCING) {
+                LOG.info("Rebalancing Started");
+            }
         });
 
 
@@ -107,7 +117,7 @@ public class CoGroupingListeningExampleApplication {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "cogrouping-restoring-group");
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "cogrouping-restoring-appid");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"latest");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         props.put(StreamsConfig.REPLICATION_FACTOR_CONFIG, 1);
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
