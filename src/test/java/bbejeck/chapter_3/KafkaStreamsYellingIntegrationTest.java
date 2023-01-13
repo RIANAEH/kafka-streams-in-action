@@ -43,16 +43,16 @@ public class KafkaStreamsYellingIntegrationTest {
     private static final String YELL_B_TOPIC = "yell-B-topic";
     private static final String OUT_TOPIC = "out-topic";
 
-
+    // 내장 카프카 클러스터 생성
     @ClassRule
     public static final EmbeddedKafkaCluster EMBEDDED_KAFKA = new EmbeddedKafkaCluster(NUM_BROKERS);
 
     @BeforeClass
     public static void setUpAll() throws Exception {
+        // 내장 카프카 클러스터로 토픽 생성
         EMBEDDED_KAFKA.createTopic(YELL_A_TOPIC);
         EMBEDDED_KAFKA.createTopic(OUT_TOPIC);
     }
-
 
     @Before
     public void setUp() {
@@ -99,10 +99,14 @@ public class KafkaStreamsYellingIntegrationTest {
                                                           .map(String::toUpperCase)
                                                           .collect(Collectors.toList());
 
+        // 토픽에 레코드 전송
         IntegrationTestUtils.produceValuesSynchronously(YELL_A_TOPIC,
                                                         valuesToSendList,
                                                         producerConfig,
                                                         mockTime);
+
+        // 토픽에서 레코드 소비
+        // 30초까지 대기하고 지정한 레코드 수가 소비되지 않으면 에러 발생
         int expectedNumberOfRecords = 5;
         List<String> actualValues = IntegrationTestUtils.waitUntilMinValuesRecordsReceived(consumerConfig,
                                                                                            OUT_TOPIC,
@@ -110,6 +114,7 @@ public class KafkaStreamsYellingIntegrationTest {
 
         assertThat(actualValues, equalTo(expectedValuesList));
 
+        // 동적으로 토픽 추가
         EMBEDDED_KAFKA.createTopic(YELL_B_TOPIC);
 
         valuesToSendList = Arrays.asList("yell", "at", "you", "too");
@@ -126,6 +131,5 @@ public class KafkaStreamsYellingIntegrationTest {
                                                                               expectedNumberOfRecords);
 
         assertThat(actualValues, equalTo(expectedValuesList));
-
     }
 }

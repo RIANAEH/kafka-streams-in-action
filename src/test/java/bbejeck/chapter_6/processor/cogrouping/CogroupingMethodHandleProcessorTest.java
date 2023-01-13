@@ -21,8 +21,10 @@ import static org.mockito.Mockito.*;
 
 public class CogroupingMethodHandleProcessorTest {
 
+    // Mockito로 ProcessorContext 모킹
     private ProcessorContext processorContext = mock(ProcessorContext.class);
     private CogroupingMethodHandleProcessor processor = new CogroupingMethodHandleProcessor();
+    // 사용자 정의 Mock 객체로 StateStore 모킹
     private MockKeyValueStore<String, Tuple<List<ClickEvent>, List<StockTransaction>>> keyValueStore = new MockKeyValueStore<>();
     private ClickEvent clickEvent = new ClickEvent("ABC", "http://somelink.com", Instant.now());
     private StockTransaction transaction = StockTransaction.newBuilder().withSymbol("ABC").build();
@@ -57,7 +59,6 @@ public class CogroupingMethodHandleProcessorTest {
 
         assertThat(tuple._1.size(), equalTo(1));
         assertThat(tuple._2.size(), equalTo(1));
-
     }
 
     @Test
@@ -80,5 +81,4 @@ public class CogroupingMethodHandleProcessorTest {
         assertThat(tuple._1.size(), equalTo(0));
         assertThat(tuple._2.size(), equalTo(0));
     }
-
 }

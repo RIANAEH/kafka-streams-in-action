@@ -66,6 +66,7 @@ public class StockPerformanceStreamsProcessorTopologyTest {
                 stringSerde.serializer(),
                 stockTransactionSerde.serializer());
 
+        // 상태 저장소 조회
         KeyValueStore<String, StockPerformance> store = topologyTestDriver.getKeyValueStore("stock-performance-store");
         
         assertThat(store.get(stockTransaction.getSymbol()), notNullValue());

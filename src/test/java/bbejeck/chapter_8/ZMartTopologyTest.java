@@ -47,7 +47,6 @@ public class ZMartTopologyTest {
         topologyTestDriver = new ProcessorTopologyTestDriver(streamsConfig, topology);
     }
 
-
     @Test
     @DisplayName("Testing the ZMart Topology Flow")
     public void testZMartTopology() {
@@ -59,34 +58,38 @@ public class ZMartTopologyTest {
 
         Purchase purchase = DataGenerator.generatePurchase();
 
+        // 토폴로지에 초기 레코드 전송
         topologyTestDriver.process("transactions",
                 null,
                 purchase,
                 stringSerde.serializer(),
                 purchaseSerde.serializer());
 
+        // 1. purchases 토픽에서 레코드 조회
         ProducerRecord<String, Purchase> record = topologyTestDriver.readOutput("purchases",
                 stringSerde.deserializer(),
                 purchaseSerde.deserializer());
 
+        // 잘 마스킹 되어 있는지 확인
         Purchase expectedPurchase = Purchase.builder(purchase).maskCreditCard().build();
         assertThat(record.value(), equalTo(expectedPurchase));
 
-
-        RewardAccumulator expectedRewardAccumulator = RewardAccumulator.builder(expectedPurchase).build();
-
+        // 2. rewards 토픽에서 레코드 조회
         ProducerRecord<String, RewardAccumulator> accumulatorProducerRecord = topologyTestDriver.readOutput("rewards",
                 stringSerde.deserializer(),
                 rewardAccumulatorSerde.deserializer());
 
+        // 보상이 잘 계산되었는지 확인
+        RewardAccumulator expectedRewardAccumulator = RewardAccumulator.builder(expectedPurchase).build();
         assertThat(accumulatorProducerRecord.value(), equalTo(expectedRewardAccumulator));
 
-        PurchasePattern expectedPurchasePattern = PurchasePattern.builder(expectedPurchase).build();
-
+        // 3. patterns 토픽에서 레코드 조회
         ProducerRecord<String, PurchasePattern> purchasePatternProducerRecord = topologyTestDriver.readOutput("patterns",
                 stringSerde.deserializer(),
                 purchasePatternSerde.deserializer());
 
+        // 구매 패턴이 잘 조회되었는지 확인
+        PurchasePattern expectedPurchasePattern = PurchasePattern.builder(expectedPurchase).build();
         assertThat(purchasePatternProducerRecord.value(), equalTo(expectedPurchasePattern));
     }
 }
