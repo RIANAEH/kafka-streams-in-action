@@ -53,6 +53,9 @@ public class CogroupingMethodHandleProcessor extends AbstractProcessor<String, T
         tupleStore.put(key, cogroupedTuple);
     }
 
+    /*
+        Puntuator 클래스를 선언하지 않고 메서드를 선언해 Puntuator 인스턴스에 대한 메서드 핸들을 지정할 수 있다.
+     */
     public void cogroup(long timestamp) {
         KeyValueIterator<String, Tuple<List<ClickEvent>, List<StockTransaction>>> iterator = tupleStore.all();
 

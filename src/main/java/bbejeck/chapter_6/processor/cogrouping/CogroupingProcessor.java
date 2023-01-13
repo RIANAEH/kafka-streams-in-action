@@ -28,9 +28,11 @@ public class CogroupingProcessor extends AbstractProcessor<String, Tuple<ClickEv
     @SuppressWarnings("unchecked")
     public void init(ProcessorContext context) {
         super.init(context);
+
         tupleStore = (KeyValueStore) context().getStateStore(TUPLE_STORE_NAME);
+
         CogroupingPunctuator punctuator = new CogroupingPunctuator(tupleStore, context());
-        context().schedule(15000L, STREAM_TIME, punctuator);
+        context().schedule(15 * 1000L, STREAM_TIME, punctuator);
     }
 
     @Override
@@ -41,11 +43,11 @@ public class CogroupingProcessor extends AbstractProcessor<String, Tuple<ClickEv
              cogroupedTuple = Tuple.of(new ArrayList<>(), new ArrayList<>());
         }
 
-        if(value._1 != null) {
+        if (value._1 != null) {
             cogroupedTuple._1.add(value._1);
         }
 
-        if(value._2 != null) {
+        if (value._2 != null) {
             cogroupedTuple._2.add(value._2);
         }
 

@@ -35,7 +35,6 @@ public class CoGroupingApplication {
 
     public static void main(String[] args) throws Exception {
 
-
         StreamsConfig streamsConfig = new StreamsConfig(getProperties());
         Deserializer<String> stringDeserializer = Serdes.String().deserializer();
         Serializer<String> stringSerializer = Serdes.String().serializer();
@@ -47,28 +46,45 @@ public class CoGroupingApplication {
         Serde<ClickEvent> clickEventSerde = StreamsSerdes.ClickEventSerde();
         Deserializer<ClickEvent> clickEventDeserializer = clickEventSerde.deserializer();
 
-
+        // 토폴로지 생성
         Topology topology = new Topology();
-        Map<String, String> changeLogConfigs = new HashMap<>();
-        changeLogConfigs.put("retention.ms", "120000");
-        changeLogConfigs.put("cleanup.policy", "compact,delete");
 
+        // 주식 거래 내역 토픽의 소스 노드 및 프로세서 추가
+        topology.addSource("Txn-Source",
+                stringDeserializer,
+                stockTransactionDeserializer,
+                "stock-transactions");
+        topology.addProcessor("Txn-Processor",
+                StockTransactionProcessor::new,
+                "Txn-Source");
 
-        KeyValueBytesStoreSupplier storeSupplier = Stores.persistentKeyValueStore(TUPLE_STORE_NAME);
-        StoreBuilder<KeyValueStore<String, Tuple<List<ClickEvent>, List<StockTransaction>>>> storeBuilder =
-                Stores.keyValueStoreBuilder(storeSupplier,
-                        Serdes.String(),
-                        eventPerformanceTuple).withLoggingEnabled(changeLogConfigs);
+        // 이벤트 토픽의 소스 노드 및 프로세서 추가
+        topology.addSource("Events-Source",
+                stringDeserializer,
+                clickEventDeserializer,
+                "events");
+        topology.addProcessor("Events-Processor",
+                ClickEventProcessor::new,
+                "Events-Source");
 
-        topology.addSource("Txn-Source", stringDeserializer, stockTransactionDeserializer, "stock-transactions")
-                .addSource("Events-Source", stringDeserializer, clickEventDeserializer, "events")
-                .addProcessor("Txn-Processor", StockTransactionProcessor::new, "Txn-Source")
-                .addProcessor("Events-Processor", ClickEventProcessor::new, "Events-Source")
-                .addProcessor("CoGrouping-Processor", CogroupingProcessor::new, "Txn-Processor", "Events-Processor")
-                .addStateStore(storeBuilder, "CoGrouping-Processor")
-                .addSink("Tuple-Sink", "cogrouped-results", stringSerializer, tupleSerializer, "CoGrouping-Processor");
+        // 코그룹 프로세서 추가
+        topology.addProcessor("CoGrouping-Processor",
+                CogroupingProcessor::new,
+                "Txn-Processor", "Events-Processor"); // 두개의 부모 노드
+        // 코그룹 프로세서가 사용하는 스테이트 스토어 추가
+        topology.addStateStore(makePersistentStoreBuilder(eventPerformanceTuple),
+                "CoGrouping-Processor"); // 스테이트 스토어를 사용하는 프로세서 (여러개 지정 가능)
 
-        topology.addProcessor("Print", new KStreamPrinter("Co-Grouping"), "CoGrouping-Processor");
+        // 결과를 저장하는 싱크 노드 추가
+//        topology.addSink("Tuple-Sink",
+//                "cogrouped-results",
+//                stringSerializer,
+//                tupleSerializer,
+//                "CoGrouping-Processor");
+
+        topology.addProcessor("Print",
+                new KStreamPrinter("Co-Grouping"),
+                "CoGrouping-Processor");
 
 
         MockDataProducer.produceStockTransactionsAndDayTradingClickEvents(50, 100, 100, StockTransaction::getSymbol);
@@ -83,6 +99,19 @@ public class CoGroupingApplication {
         MockDataProducer.shutdown();
     }
 
+    private static StoreBuilder<KeyValueStore<String, Tuple<List<ClickEvent>, List<StockTransaction>>>> makePersistentStoreBuilder(final Serde<Tuple<List<ClickEvent>, List<StockTransaction>>> eventPerformanceTuple) {
+        // 스테이트 스토어의 압축 및 삭제 기간 설정
+        Map<String, String> changeLogConfigs = new HashMap<>();
+        changeLogConfigs.put("retention.ms", "120000");
+        changeLogConfigs.put("cleanup.policy", "compact,delete");
+
+        // 영구 저장소(록스DB)를 위한 저장소 서플라이어 생성
+        KeyValueBytesStoreSupplier storeSupplier = Stores.persistentKeyValueStore(TUPLE_STORE_NAME);
+
+        // 저장소 빌더 생성
+        return Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), eventPerformanceTuple)
+                .withLoggingEnabled(changeLogConfigs); // 저장소 빌더에 변경로그 구성을 추가
+    }
 
     private static Properties getProperties() {
         Properties props = new Properties();
@@ -97,6 +126,4 @@ public class CoGroupingApplication {
         props.put(StreamsConfig.DEFAULT_TIMESTAMP_EXTRACTOR_CLASS_CONFIG, WallclockTimestampExtractor.class);
         return props;
     }
-
-
 }

@@ -29,18 +29,21 @@ public class CogroupingPunctuator implements Punctuator {
 
         while (iterator.hasNext()) {
             KeyValue<String, Tuple<List<ClickEvent>, List<StockTransaction>>> cogrouped = iterator.next();
-            // if either list contains values forward results
-            if (cogrouped.value != null && (!cogrouped.value._1.isEmpty() || !cogrouped.value._2.isEmpty())) {
+            if (hasValueInEither(cogrouped)) {
                 List<ClickEvent> clickEvents = new ArrayList<>(cogrouped.value._1);
                 List<StockTransaction> stockTransactions = new ArrayList<>(cogrouped.value._2);
 
                 context.forward(cogrouped.key, Tuple.of(clickEvents, stockTransactions));
-                // empty out the current cogrouped results
+
                 cogrouped.value._1.clear();
                 cogrouped.value._2.clear();
                 tupleStore.put(cogrouped.key, cogrouped.value);
             }
         }
         iterator.close();
+    }
+
+    private static boolean hasValueInEither(final KeyValue<String, Tuple<List<ClickEvent>, List<StockTransaction>>> cogrouped) {
+        return cogrouped.value != null && (!cogrouped.value._1.isEmpty() || !cogrouped.value._2.isEmpty());
     }
 }
