@@ -26,7 +26,6 @@ public class ZMartProcessorApp {
     public static void main(String[] args) throws Exception {
         MockDataProducer.producePurchaseData();
 
-
         StreamsConfig streamsConfig = new StreamsConfig(getProperties());
         Deserializer<String> stringDeserializer = Serdes.String().deserializer();
         Serializer<String> stringSerializer = Serdes.String().serializer();
@@ -38,17 +37,34 @@ public class ZMartProcessorApp {
 
         Topology topology = new Topology();
 
-        topology.addSource("txn-source", stringDeserializer, purchaseDeserializer, "transactions")
+        topology.addSource("txn-source",
+                        stringDeserializer,
+                        purchaseDeserializer,
+                        "transactions")
                 .addProcessor("masking-processor",
-                        () -> new MapValueProcessor<String, Purchase, Purchase>(p -> Purchase.builder(p).maskCreditCard().build()), "txn-source")
+                        () -> new MapValueProcessor<String, Purchase, Purchase>(p -> Purchase.builder(p).maskCreditCard().build()),
+                        "txn-source")
                 .addProcessor("rewards-processor",
-                        () -> new MapValueProcessor<String, Purchase, RewardAccumulator>(purchase -> RewardAccumulator.builder(purchase).build()), "txn-source")
+                        () -> new MapValueProcessor<String, Purchase, RewardAccumulator>(purchase -> RewardAccumulator.builder(purchase).build()),
+                        "txn-source")
                 .addProcessor("patterns-processor",
-                        () -> new MapValueProcessor<String, Purchase, PurchasePattern>(purchase -> PurchasePattern.builder(purchase).build()), "txn-source")
-                .addSink("purchase-sink", "purchases", stringSerializer, purchaseSerializer, "masking-processor")
-                .addSink("rewards-sink", "rewards", stringSerializer, rewardsSerializer, "rewards-processor")
-                .addSink("patterns-sink", "patterns", stringSerializer, patternSerializer, "patterns-processor");
-
+                        () -> new MapValueProcessor<String, Purchase, PurchasePattern>(purchase -> PurchasePattern.builder(purchase).build()),
+                        "txn-source")
+                .addSink("purchase-sink",
+                        "purchases",
+                        stringSerializer,
+                        purchaseSerializer,
+                        "masking-processor")
+                .addSink("rewards-sink",
+                        "rewards",
+                        stringSerializer,
+                        rewardsSerializer,
+                        "rewards-processor")
+                .addSink("patterns-sink",
+                        "patterns",
+                        stringSerializer,
+                        patternSerializer,
+                        "patterns-processor");
 
         topology.addProcessor("purchase-printer", new KStreamPrinter("purchase"), "masking-processor")
                 .addProcessor("rewards-printer", new KStreamPrinter("rewards"), "rewards-processor")
